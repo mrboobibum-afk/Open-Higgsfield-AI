@@ -145,4 +145,5 @@ jobs:
 
       - name: Write summary
         if: always()
-        run: echo "Generation timestamps are in the logs. Artifact: rainbow-colors-song-short" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "Generation timestamps are in the logs. Artifact: rainbow-colors-song-short" >> "$GITHUB_STEP_SUMMARY"
