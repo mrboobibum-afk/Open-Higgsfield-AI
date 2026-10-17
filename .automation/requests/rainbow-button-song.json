@@ -1,0 +1,22 @@
+{
+  "title": "The Rainbow Button Song",
+  "project": "Melody and Friends",
+  "provider": "MuAPI",
+  "model": "seedance-v2.0-t2v",
+  "aspect_ratio": "9:16",
+  "scene_count": 3,
+  "seconds_per_scene": 15,
+  "requirements": [
+    "no subtitles",
+    "no on-screen text",
+    "no logos",
+    "preschool-friendly 3D cartoon",
+    "consistent Mia, Mini Tim and Bim character designs"
+  ],
+  "story": [
+    "Bim presses a glowing rainbow button and all colors disappear",
+    "Mia and Mini Tim restore colors with rhythm",
+    "the rainbow returns and Bim lifts his paw to create a loop"
+  ],
+  "note": "This file is the command that triggers GitHub Actions."
+}
