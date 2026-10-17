@@ -27,7 +27,6 @@ jobs:
           fi
 
       - name: Prepare scene prompts
-        env:
         run: |
           mkdir -p output scenes
           cat > scenes/scene1.txt <<'PROMPT'
@@ -39,8 +38,8 @@ jobs:
           cat > scenes/scene3.txt <<'PROMPT'
           Vertical 9:16 polished colorful 3D preschool animation, same exact recurring character designs: Bim, fluffy golden-caramel puppy with floppy ears, big brown eyes, red collar and gold bell; Mia, preschool girl with brown hair in two high ponytails with red bows, green eyes, yellow dress with tiny black musical notes and red sneakers; Mini Tim, boy with tousled brown hair, backward red cap, blue T-shirt with white drum graphic, orange cargo shorts and red sneakers. The final rainbow bursts back into the playroom, every object regains bright color. Mia, Mini Tim and Bim dance together happily around the glowing rainbow button. End with Bim looking curiously at the button again and lifting his paw, framing a seamless loop back to the opening. Strong joyful payoff, smooth camera, polished 3D preschool cartoon, no text, no subtitles, no logos. Upbeat children's song feel if audio supported.
           PROMPT
-          printf '%s\n' "$ISSUE_TITLE" > output/request-title.txt
-          printf '%s\n' "$ISSUE_BODY" > output/request-details.txt
+          printf '%s\\n' "The Rainbow Button Song" > output/request-title.txt
+          cp .automation/requests/*.json output/request-details.json
 
       - name: Generate and download three scenes through MuAPI
         env:
