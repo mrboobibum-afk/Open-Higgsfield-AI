@@ -1,0 +1,167 @@
+name: Generate test video
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Video prompt (English usually works best)"
+        required: true
+        type: string
+        default: "Vertical 9:16 colorful 3D preschool animation. A cute fluffy puppy named Bim suddenly jumps and presses a glowing rainbow button; all colors pop out in a magical burst, Mia and Tim react with delighted surprise. Clear visual hook in the first second, expressive friendly characters, smooth camera movement, bright soft lighting, polished family-friendly cartoon, no text, no subtitles, no logos."
+      model:
+        description: "Video model endpoint"
+        required: true
+        type: choice
+        options:
+          - seedance-v2.0-t2v
+          - seedance-lite-t2v
+          - kling-v2.5-turbo-pro-t2v
+          - veo3-fast-text-to-video
+        default: seedance-v2.0-t2v
+      duration:
+        description: "Clip duration in seconds (model-dependent)"
+        required: true
+        type: choice
+        options:
+          - "5"
+          - "10"
+          - "15"
+        default: "5"
+      aspect_ratio:
+        description: "Aspect ratio"
+        required: true
+        type: choice
+        options:
+          - "9:16"
+          - "16:9"
+        default: "9:16"
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Validate API key
+        env:
+          MUAPI_API_KEY: ${{ secrets.MUAPI_API_KEY }}
+        run: |
+          if [ -z "$MUAPI_API_KEY" ]; then
+            echo "::error::Missing repository secret MUAPI_API_KEY. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Submit generation request
+        id: submit
+        env:
+          MUAPI_API_KEY: ${{ secrets.MUAPI_API_KEY }}
+          MODEL: ${{ inputs.model }}
+          PROMPT: ${{ inputs.prompt }}
+          DURATION: ${{ inputs.duration }}
+          ASPECT_RATIO: ${{ inputs.aspect_ratio }}
+        run: |
+          jq -n --arg prompt "$PROMPT" --arg ratio "$ASPECT_RATIO" --argjson duration "$DURATION" \
+            '{prompt:$prompt, aspect_ratio:$ratio, duration:$duration}' > request.json
+
+          echo "Submitting request to model: $MODEL"
+          http_code=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "https://api.muapi.ai/api/v1/$MODEL" \
+            -H "Content-Type: application/json" \
+            -H "x-api-key: $MUAPI_API_KEY" \
+            --data @request.json)
+
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "::error::Muapi submit failed (HTTP $http_code). Response:"
+            cat response.json
+            exit 1
+          fi
+
+          cat response.json | jq .
+          request_id=$(jq -r '.request_id // .id // empty' response.json)
+          output_url=$(jq -r '.outputs[0] // .url // .output.url // empty' response.json)
+
+          if [ -n "$output_url" ]; then
+            echo "output_url=$output_url" >> "$GITHUB_OUTPUT"
+          elif [ -n "$request_id" ]; then
+            echo "request_id=$request_id" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Muapi response contained neither request_id nor output URL."
+            exit 1
+          fi
+
+      - name: Poll for completion
+        if: steps.submit.outputs.request_id != ''
+        env:
+          MUAPI_API_KEY: ${{ secrets.MUAPI_API_KEY }}
+          REQUEST_ID: ${{ steps.submit.outputs.request_id }}
+        run: |
+          for attempt in $(seq 1 900); do
+            http_code=$(curl -sS -o result.json -w "%{http_code}" \
+              "https://api.muapi.ai/api/v1/predictions/$REQUEST_ID/result" \
+              -H "Content-Type: application/json" \
+              -H "x-api-key: $MUAPI_API_KEY")
+
+            if [ "$http_code" -ge 500 ]; then
+              sleep 2
+              continue
+            fi
+            if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+              echo "::error::Muapi polling failed (HTTP $http_code)."
+              cat result.json
+              exit 1
+            fi
+
+            status=$(jq -r '.status // "" | ascii_downcase' result.json)
+            echo "Generation status: ${status:-unknown} (attempt $attempt/900)"
+
+            case "$status" in
+              completed|succeeded|success)
+                output_url=$(jq -r '.outputs[0] // .url // .output.url // empty' result.json)
+                if [ -z "$output_url" ]; then
+                  echo "::error::Generation completed but response contains no output URL."
+                  cat result.json
+                  exit 1
+                fi
+                echo "$output_url" > output_url.txt
+                exit 0
+                ;;
+              failed|error)
+                echo "::error::Muapi generation failed."
+                cat result.json
+                exit 1
+                ;;
+            esac
+            sleep 2
+          done
+
+          echo "::error::Timed out waiting for Muapi after 30 minutes."
+          exit 1
+
+      - name: Save immediate result URL
+        if: steps.submit.outputs.output_url != ''
+        env:
+          OUTPUT_URL: ${{ steps.submit.outputs.output_url }}
+        run: printf '%s' "$OUTPUT_URL" > output_url.txt
+
+      - name: Download generated video
+        env:
+          OUTPUT_URL: ${{ steps.submit.outputs.output_url }}
+        run: |
+          if [ -f output_url.txt ]; then
+            OUTPUT_URL=$(cat output_url.txt)
+          fi
+          mkdir -p output
+          curl -fL --retry 3 --retry-delay 2 "$OUTPUT_URL" -o output/test-video.mp4
+          test -s output/test-video.mp4
+          echo "Downloaded video:"
+          ls -lh output/test-video.mp4
+
+      - name: Upload video as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-test-video
+          path: output/test-video.mp4
+          if-no-files-found: error
+          retention-days: 7
