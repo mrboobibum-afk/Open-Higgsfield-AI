@@ -1,0 +1,125 @@
+name: Generate full Short from issue
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  generate:
+    if: startsWith(github.event.issue.title, '[GENERATE SHORT]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Validate MuAPI secret
+        env:
+          MUAPI_API_KEY: ${{ secrets.MUAPI_API_KEY }}
+        run: |
+          if [ -z "$MUAPI_API_KEY" ]; then
+            echo "::error::Missing repository secret MUAPI_API_KEY."
+            exit 1
+          fi
+
+      - name: Prepare scene prompts
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          mkdir -p output scenes
+          cat > scenes/scene1.txt <<'PROMPT'
+          Vertical 9:16 polished colorful 3D preschool animation, same recurring characters across scenes: Bim, a fluffy golden-caramel puppy with floppy ears, big brown eyes, red collar and gold bell; Mia, preschool girl with brown hair in two high ponytails with red bows, big green eyes, yellow dress with tiny black musical notes and red sneakers; Mini Tim, little boy with tousled brown hair, backward red cap, blue T-shirt with white drum graphic, orange cargo shorts and red sneakers. Strong visual hook in first second: extreme close-up of Bim's paw hovering over a large glowing rainbow button, then he accidentally presses it. A magical rainbow pulse sweeps across a bright playroom and all colors drain to grayscale. Mia and Mini Tim react with surprised expressive faces. Smooth camera, friendly, safe, vivid cinematic lighting, consistent character designs, no text, no subtitles, no logos. A playful upbeat children's song melody/vocal if supported by model.
+          PROMPT
+          cat > scenes/scene2.txt <<'PROMPT'
+          Vertical 9:16 polished colorful 3D preschool animation, maintain exactly the same character designs: Bim, fluffy golden-caramel puppy with floppy ears, big brown eyes, red collar and gold bell; Mia, preschool girl with brown hair in two high ponytails with red bows, green eyes, yellow dress with tiny black musical notes and red sneakers; Mini Tim, boy with tousled brown hair, backward red cap, blue T-shirt with white drum graphic, orange cargo shorts and red sneakers. In a now grayscale playroom, Mia claps a rhythm and Mini Tim taps his little drum; each beat restores one bright color in the room. Bim looks worried, then hopeful. Clear readable actions, joyful expressions, smooth camera, child-friendly high quality 3D cartoon, no text, no subtitles, no logos. Continue upbeat children's song feel if audio supported.
+          PROMPT
+          cat > scenes/scene3.txt <<'PROMPT'
+          Vertical 9:16 polished colorful 3D preschool animation, same exact recurring character designs: Bim, fluffy golden-caramel puppy with floppy ears, big brown eyes, red collar and gold bell; Mia, preschool girl with brown hair in two high ponytails with red bows, green eyes, yellow dress with tiny black musical notes and red sneakers; Mini Tim, boy with tousled brown hair, backward red cap, blue T-shirt with white drum graphic, orange cargo shorts and red sneakers. The final rainbow bursts back into the playroom, every object regains bright color. Mia, Mini Tim and Bim dance together happily around the glowing rainbow button. End with Bim looking curiously at the button again and lifting his paw, framing a seamless loop back to the opening. Strong joyful payoff, smooth camera, polished 3D preschool cartoon, no text, no subtitles, no logos. Upbeat children's song feel if audio supported.
+          PROMPT
+          printf '%s\n' "$ISSUE_TITLE" > output/request-title.txt
+          printf '%s\n' "$ISSUE_BODY" > output/request-details.txt
+
+      - name: Generate and download three scenes through MuAPI
+        env:
+          MUAPI_API_KEY: ${{ secrets.MUAPI_API_KEY }}
+          MODEL: seedance-v2.0-t2v
+        run: |
+          set -euo pipefail
+          for scene in 1 2 3; do
+            prompt=$(cat "scenes/scene${scene}.txt")
+            jq -n --arg prompt "$prompt" --arg ratio "9:16" --argjson duration 15 '{prompt:$prompt, aspect_ratio:$ratio, duration:$duration}' > "request-${scene}.json"
+            echo "Submitting scene $scene/3"
+            code=$(curl -sS -o "response-${scene}.json" -w "%{http_code}" -X POST "https://api.muapi.ai/api/v1/$MODEL" -H "Content-Type: application/json" -H "x-api-key: $MUAPI_API_KEY" --data @"request-${scene}.json")
+            if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+              echo "::error::MuAPI submit failed for scene $scene (HTTP $code)"
+              cat "response-${scene}.json"
+              exit 1
+            fi
+            cat "response-${scene}.json" | jq .
+            request_id=$(jq -r '.request_id // .id // empty' "response-${scene}.json")
+            url=$(jq -r '.outputs[0] // .url // .output.url // empty' "response-${scene}.json")
+            if [ -n "$request_id" ]; then
+              ready=0
+              for attempt in $(seq 1 900); do
+                code=$(curl -sS -o "result-${scene}.json" -w "%{http_code}" "https://api.muapi.ai/api/v1/predictions/$request_id/result" -H "Content-Type: application/json" -H "x-api-key: $MUAPI_API_KEY")
+                if [ "$code" -ge 500 ]; then sleep 2; continue; fi
+                if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then cat "result-${scene}.json"; exit 1; fi
+                status=$(jq -r '.status // "" | ascii_downcase' "result-${scene}.json")
+                echo "Scene $scene status: ${status:-unknown} ($attempt/900)"
+                case "$status" in
+                  completed|succeeded|success)
+                    url=$(jq -r '.outputs[0] // .url // .output.url // empty' "result-${scene}.json")
+                    [ -n "$url" ] || { echo "::error::No output URL for scene $scene"; cat "result-${scene}.json"; exit 1; }
+                    ready=1
+                    break
+                    ;;
+                  failed|error) cat "result-${scene}.json"; exit 1 ;;
+                esac
+                sleep 2
+              done
+              [ "$ready" = "1" ] || { echo "::error::Timeout on scene $scene"; exit 1; }
+            fi
+            [ -n "$url" ] || { echo "::error::MuAPI response has no output URL for scene $scene"; exit 1; }
+            curl -fL --retry 3 --retry-delay 2 "$url" -o "scenes/scene${scene}.mp4"
+            test -s "scenes/scene${scene}.mp4"
+          done
+
+      - name: Assemble vertical Short
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          for f in scenes/scene1.mp4 scenes/scene2.mp4 scenes/scene3.mp4; do
+            ffmpeg -hide_banner -loglevel error -i "$f" -vf "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p" -c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 160k -ar 44100 -ac 2 -shortest "scenes/normalized-$(basename "$f")"
+          done
+          printf "file '%s'\n" "$PWD/scenes/normalized-scene1.mp4" "$PWD/scenes/normalized-scene2.mp4" "$PWD/scenes/normalized-scene3.mp4" > scenes/concat.txt
+          ffmpeg -hide_banner -loglevel error -f concat -safe 0 -i scenes/concat.txt -c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 160k -movflags +faststart output/the-rainbow-button-song.mp4
+          test -s output/the-rainbow-button-song.mp4
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 output/the-rainbow-button-song.mp4 | tee output/duration-seconds.txt
+          ls -lh output/the-rainbow-button-song.mp4
+
+      - name: Upload completed Short
+        uses: actions/upload-artifact@v4
+        with:
+          name: rainbow-button-song-short
+          path: output/
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Report result on issue
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const conclusion = '${{ job.status }}';
+            const body = conclusion === 'success'
+              ? 'MuAPI generation and assembly completed. Open the Actions run and download the artifact **rainbow-button-song-short** (MP4 + metadata). Audio depends on what the selected MuAPI video model returns; this workflow does not synthesize a separate sung vocal track.'
+              : 'MuAPI generation/assembly failed. Open the linked Actions run and inspect the failed step logs; the run logs will show the API response.';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
