@@ -7,40 +7,83 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   generate:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Validate MuAPI secret
         env:
           MUAPI_API_KEY: ${{ secrets.MUAPI_API_KEY }}
         run: |
-          if [ -z "$MUAPI_API_KEY" ]; then
-            echo "::error::Missing repository secret MUAPI_API_KEY."
-            exit 1
-          fi
+          test -n "$MUAPI_API_KEY" || { echo "::error::Missing MUAPI_API_KEY"; exit 1; }
 
-      - name: Prepare scene prompts
+      - name: Prepare story, sung lyrics, and captions
         run: |
           mkdir -p output scenes
           cat > scenes/scene1.txt <<'PROMPT'
-          Vertical 9:16 polished colorful 3D preschool animation, same recurring characters across scenes: Bim, a fluffy golden-caramel puppy with floppy ears, big brown eyes, red collar and gold bell; Mia, preschool girl with brown hair in two high ponytails with red bows, big green eyes, yellow dress with tiny black musical notes and red sneakers; Mini Tim, little boy with tousled brown hair, backward red cap, blue T-shirt with white drum graphic, orange cargo shorts and red sneakers. Strong visual hook in first second: extreme close-up of Bim's paw hovering over a large glowing rainbow button, then he accidentally presses it. A magical rainbow pulse sweeps across a bright playroom and all colors drain to grayscale. Mia and Mini Tim react with surprised expressive faces. Smooth camera, friendly, safe, vivid cinematic lighting, consistent character designs, no text, no subtitles, no logos. A playful upbeat children's song melody/vocal if supported by model.
+          Create a premium, highly engaging preschool musical cartoon in vertical 9:16, 15 seconds, with native synchronized AUDIO. Original bouncy nursery-rhyme melody, bright child-friendly female lead singer clearly SINGING the exact English lyrics below, with children softly echoing the color words; clear pronunciation, steady 115 BPM, handclaps, ukulele, bells and playful drums. This is a SONG, not spoken narration, not instrumental-only. Lyrics for this clip, sing exactly: "Oh no, the colors went away! Bim, let's bring them back today! RED, RED, find something red!" Visuals: first 1 second is a startling funny close-up: Bim's paw slams a glowing rainbow button; the whole playroom instantly turns grayscale. Bim is a fluffy golden-caramel puppy, floppy ears, big brown eyes, red collar with gold bell. Mia is a preschool girl with brown hair in two high ponytails with red bows, big green eyes, yellow dress with tiny black musical notes and red sneakers. Mini Tim is a little boy with tousled brown hair, backward red cap, blue T-shirt with white drum graphic, orange cargo shorts, white socks with blue stripes, red sneakers. Keep character appearance consistent. Mia points to a bright RED ball that regains its color, close-up clearly shows the red ball; characters react and dance on the beat. High-end soft 3D animation, saturated colors, expressive faces, fast visual changes every 2-3 seconds, clear readable action, no written text, no subtitles, no logos, no watermark. Audio must contain the specified sung lyrics.
           PROMPT
           cat > scenes/scene2.txt <<'PROMPT'
-          Vertical 9:16 polished colorful 3D preschool animation, maintain exactly the same character designs: Bim, fluffy golden-caramel puppy with floppy ears, big brown eyes, red collar and gold bell; Mia, preschool girl with brown hair in two high ponytails with red bows, green eyes, yellow dress with tiny black musical notes and red sneakers; Mini Tim, boy with tousled brown hair, backward red cap, blue T-shirt with white drum graphic, orange cargo shorts and red sneakers. In a now grayscale playroom, Mia claps a rhythm and Mini Tim taps his little drum; each beat restores one bright color in the room. Bim looks worried, then hopeful. Clear readable actions, joyful expressions, smooth camera, child-friendly high quality 3D cartoon, no text, no subtitles, no logos. Continue upbeat children's song feel if audio supported.
+          Create the second continuous-feeling 15-second segment of the same premium preschool music video, vertical 9:16, native synchronized AUDIO. Continue the SAME original bouncy nursery-rhyme tune and same bright female lead singer, 115 BPM, handclaps, ukulele, bells, playful drums, children echo the color words. Clearly SING exactly these English lyrics, not spoken: "BLUE, BLUE, touch the sky! YELLOW, YELLOW, shining high! Blue and yellow, sing with me!" Visuals must match lyrics: Mia and Mini Tim rhythmically tap a BLUE toy drum; camera cuts to a BLUE sky visible through the playroom window. Then a YELLOW rubber duck lights up yellow. Each named color fills the matching object, with a satisfying sparkle exactly on each sung color word. Bim, fluffy golden-caramel puppy with floppy ears, big brown eyes, red collar and gold bell; Mia, preschool girl with brown hair in two high ponytails with red bows, big green eyes, yellow dress with tiny black musical notes and red sneakers; Mini Tim, boy with tousled brown hair, backward red cap, blue T-shirt with white drum graphic, orange cargo shorts, white socks with blue stripes, red sneakers. Maintain same character designs and room. Premium polished 3D preschool cartoon, energetic but not chaotic, clear close-ups, action change every 2-3 seconds, no text, no subtitles, no logos, no watermark. Audio must sing the exact lyrics with clear pronunciation.
           PROMPT
           cat > scenes/scene3.txt <<'PROMPT'
-          Vertical 9:16 polished colorful 3D preschool animation, same exact recurring character designs: Bim, fluffy golden-caramel puppy with floppy ears, big brown eyes, red collar and gold bell; Mia, preschool girl with brown hair in two high ponytails with red bows, green eyes, yellow dress with tiny black musical notes and red sneakers; Mini Tim, boy with tousled brown hair, backward red cap, blue T-shirt with white drum graphic, orange cargo shorts and red sneakers. The final rainbow bursts back into the playroom, every object regains bright color. Mia, Mini Tim and Bim dance together happily around the glowing rainbow button. End with Bim looking curiously at the button again and lifting his paw, framing a seamless loop back to the opening. Strong joyful payoff, smooth camera, polished 3D preschool cartoon, no text, no subtitles, no logos. Upbeat children's song feel if audio supported.
+          Final 15-second segment of a premium preschool musical cartoon, vertical 9:16, native synchronized AUDIO. Continue the same catchy original nursery-rhyme melody, female lead singing clearly with children echoing, 115 BPM, ukulele, handclaps, bells and drums. Sing exactly: "RED, BLUE, YELLOW — colors all around! Clap, clap, clap along! Let's sing our color song!" Make the last line joyful and musical, then finish with a short melodic button sound. Visuals match every lyric: red ball, blue drum, yellow duck pop up in quick rhythmic close-ups; on "colors all around" the room bursts into a vivid rainbow. Mia, Mini Tim and Bim dance a simple repeatable clap-clap-stomp move with the beat; finish with a joyful wide shot and Bim raising his paw toward the rainbow button, matching the opening for a seamless loop. Same exact characters: Bim is fluffy golden-caramel puppy with floppy ears, big brown eyes, red collar and gold bell; Mia has brown hair in two high ponytails with red bows, big green eyes, yellow dress with tiny black musical notes, red sneakers; Mini Tim has tousled brown hair, backward red cap, blue T-shirt with white drum graphic, orange cargo shorts, white socks with blue stripes, red sneakers. Premium polished 3D, fast visual changes every 2-3 seconds, high contrast and expressive reactions, no text, no subtitles, no logos, no watermark. Audio must contain the exact sung lyrics, not spoken narration or instrumental-only music.
           PROMPT
-          printf '%s\\n' "The Rainbow Button Song" > output/request-title.txt
+          cat > output/lyrics.txt <<'LYRICS'
+          Oh no, the colors went away!
+          Bim, let's bring them back today!
+          RED, RED, find something red!
+          BLUE, BLUE, touch the sky!
+          YELLOW, YELLOW, shining high!
+          Blue and yellow, sing with me!
+          RED, BLUE, YELLOW — colors all around!
+          Clap, clap, clap along!
+          Let's sing our color song!
+          LYRICS
+          cat > scenes/captions.srt <<'SRT'
+          1
+          00:00:00,500 --> 00:00:03,800
+          Oh no, the colors went away!
 
-      - name: Generate and download three scenes through MuAPI
+          2
+          00:00:03,800 --> 00:00:06,000
+          Bim, let's bring them back today!
+
+          3
+          00:00:06,000 --> 00:00:10,000
+          RED, RED, find something red!
+
+          4
+          00:00:15,000 --> 00:00:18,000
+          BLUE, BLUE, touch the sky!
+
+          5
+          00:00:18,000 --> 00:00:21,000
+          YELLOW, YELLOW, shining high!
+
+          6
+          00:00:21,000 --> 00:00:25,000
+          Blue and yellow, sing with me!
+
+          7
+          00:00:30,000 --> 00:00:34,000
+          RED, BLUE, YELLOW — colors all around!
+
+          8
+          00:00:34,000 --> 00:00:37,000
+          Clap, clap, clap along!
+
+          9
+          00:00:37,000 --> 00:00:44,000
+          Let's sing our color song!
+          SRT
+          echo "The Rainbow Colors Song" > output/request-title.txt
+
+      - name: Generate three 15-second scenes through MuAPI
         env:
           MUAPI_API_KEY: ${{ secrets.MUAPI_API_KEY }}
           MODEL: seedance-v2.0-t2v
@@ -49,14 +92,9 @@ jobs:
           for scene in 1 2 3; do
             prompt=$(cat "scenes/scene${scene}.txt")
             jq -n --arg prompt "$prompt" --arg ratio "9:16" --argjson duration 15 '{prompt:$prompt, aspect_ratio:$ratio, duration:$duration}' > "request-${scene}.json"
-            echo "Submitting scene $scene/3"
+            echo "Submitting paid generation ${scene}/3 at $(date -u +%FT%TZ)"
             code=$(curl -sS -o "response-${scene}.json" -w "%{http_code}" -X POST "https://api.muapi.ai/api/v1/$MODEL" -H "Content-Type: application/json" -H "x-api-key: $MUAPI_API_KEY" --data @"request-${scene}.json")
-            if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
-              echo "::error::MuAPI submit failed for scene $scene (HTTP $code)"
-              cat "response-${scene}.json"
-              exit 1
-            fi
-            cat "response-${scene}.json" | jq .
+            if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then cat "response-${scene}.json"; exit 1; fi
             request_id=$(jq -r '.request_id // .id // empty' "response-${scene}.json")
             url=$(jq -r '.outputs[0] // .url // .output.url // empty' "response-${scene}.json")
             if [ -n "$request_id" ]; then
@@ -66,52 +104,45 @@ jobs:
                 if [ "$code" -ge 500 ]; then sleep 2; continue; fi
                 if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then cat "result-${scene}.json"; exit 1; fi
                 status=$(jq -r '.status // "" | ascii_downcase' "result-${scene}.json")
-                echo "Scene $scene status: ${status:-unknown} ($attempt/900)"
+                echo "Scene ${scene}: ${status:-unknown} ($attempt/900)"
                 case "$status" in
-                  completed|succeeded|success)
-                    url=$(jq -r '.outputs[0] // .url // .output.url // empty' "result-${scene}.json")
-                    [ -n "$url" ] || { echo "::error::No output URL for scene $scene"; cat "result-${scene}.json"; exit 1; }
-                    ready=1
-                    break
-                    ;;
+                  completed|succeeded|success) url=$(jq -r '.outputs[0] // .url // .output.url // empty' "result-${scene}.json"); ready=1; break ;;
                   failed|error) cat "result-${scene}.json"; exit 1 ;;
                 esac
                 sleep 2
               done
-              [ "$ready" = "1" ] || { echo "::error::Timeout on scene $scene"; exit 1; }
+              [ "$ready" = 1 ] || { echo "::error::Timeout scene $scene"; exit 1; }
             fi
-            [ -n "$url" ] || { echo "::error::MuAPI response has no output URL for scene $scene"; exit 1; }
+            [ -n "$url" ] || { cat "response-${scene}.json"; exit 1; }
             curl -fL --retry 3 --retry-delay 2 "$url" -o "scenes/scene${scene}.mp4"
             test -s "scenes/scene${scene}.mp4"
           done
+          echo "Generation finished at $(date -u +%FT%TZ)"
 
-      - name: Assemble vertical Short
+      - name: Assemble, add lyric captions, and validate
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install -y ffmpeg fonts-dejavu-core
           for f in scenes/scene1.mp4 scenes/scene2.mp4 scenes/scene3.mp4; do
             ffmpeg -hide_banner -loglevel error -i "$f" -vf "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p" -c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 160k -ar 44100 -ac 2 -shortest "scenes/normalized-$(basename "$f")"
           done
           printf "file '%s'\n" "$PWD/scenes/normalized-scene1.mp4" "$PWD/scenes/normalized-scene2.mp4" "$PWD/scenes/normalized-scene3.mp4" > scenes/concat.txt
-          ffmpeg -hide_banner -loglevel error -f concat -safe 0 -i scenes/concat.txt -c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 160k -movflags +faststart output/the-rainbow-button-song.mp4
-          test -s output/the-rainbow-button-song.mp4
-          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 output/the-rainbow-button-song.mp4 | tee output/duration-seconds.txt
-          ls -lh output/the-rainbow-button-song.mp4
+          ffmpeg -hide_banner -loglevel error -f concat -safe 0 -i scenes/concat.txt -c:v libx264 -preset veryfast -crf 20 -c:a aac -b:a 160k -movflags +faststart scenes/concat.mp4
+          ffmpeg -hide_banner -y -i scenes/concat.mp4 -vf "subtitles=scenes/captions.srt:force_style='FontName=DejaVu Sans,FontSize=20,PrimaryColour=&H00FFFFFF,OutlineColour=&H00101010,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=170'" -c:v libx264 -preset veryfast -crf 20 -c:a copy -movflags +faststart output/the-rainbow-colors-song.mp4
+          cp scenes/captions.srt output/captions.srt
+          ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 output/the-rainbow-colors-song.mp4 | tee output/duration-seconds.txt
+          ffprobe -v error -show_entries stream=codec_type,width,height -of json output/the-rainbow-colors-song.mp4 > output/media-info.json
+          ls -lh output/the-rainbow-colors-song.mp4
 
       - name: Upload completed Short
         uses: actions/upload-artifact@v4
         with:
-          name: rainbow-button-song-short
+          name: rainbow-colors-song-short
           path: output/
           if-no-files-found: error
           retention-days: 7
 
-      - name: Write result summary
+      - name: Write summary
         if: always()
-        run: |
-          {
-            echo "## MuAPI Short generation"
-            echo "Artifact name: rainbow-button-song-short"
-            echo "If successful, download the MP4 from this workflow run's Artifacts section."
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: echo "Generation timestamps are in the logs. Artifact: rainbow-colors-song-short" >> "$GITHUB_STEP_SUMMARY"
