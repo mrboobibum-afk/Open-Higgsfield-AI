@@ -1,0 +1,17 @@
+{
+  "title": "The Rainbow Colors Song",
+  "project": "Melody and Friends",
+  "provider": "MuAPI",
+  "model": "seedance-v2.0-t2v",
+  "aspect_ratio": "9:16",
+  "scene_count": 3,
+  "seconds_per_scene": 15,
+  "requirements": [
+    "native sung English lyrics",
+    "lyrics about red blue yellow",
+    "burned-in timed captions",
+    "first-second hook",
+    "repeatable dance and loop ending",
+    "no additional test generations"
+  ]
+}
